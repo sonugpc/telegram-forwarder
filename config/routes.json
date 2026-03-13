@@ -1,0 +1,33 @@
+{
+  "routes": [
+    {
+      "id": "route_1",
+      "name": "Deals Source → Primary Destination",
+      "enabled": true,
+      "source": "-1001380504697",
+      "destinations": [
+        "-1001380504697",
+        "-1003050182423"
+      ],
+      "processing": {
+        "enabled": true,
+        "url": "http://localhost:3004/processMessage",
+        "timeoutMs": 5000,
+        "skipOnError": false
+      },
+      "filters": {
+        "allowText": true,
+        "allowMedia": true,
+        "allowedMediaTypes": [
+          "photo",
+          "video",
+          "document",
+          "audio",
+          "voice",
+          "sticker",
+          "animation"
+        ]
+      }
+    }
+  ]
+}

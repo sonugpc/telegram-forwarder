@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Telegram Forwarder Pro</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --primary: #3b82f6;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: 0.5rem 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .content-section {
+      display: none;
+    }
+
+    .content-section.active {
+      display: block;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+      background: var(--surface);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: #0f172a;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge.green {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+
+    .badge.red {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .badge.blue {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+    }
+
+    .badge.yellow {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      color: white;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+    }
+
+    .btn.danger {
+      background: var(--danger);
+    }
+
+    .btn.small {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--surface);
+      padding: 2rem;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    select {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: white;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+
+    select[multiple] {
+      height: 120px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .checkbox-group input {
+      margin: 0;
+    }
+
+    .log-viewer {
+      background: black;
+      color: #a5b4fc;
+      font-family: monospace;
+      padding: 1rem;
+      border-radius: 8px;
+      height: 60vh;
+      overflow-y: auto;
+    }
+
+    .log-line {
+      margin: 0;
+      padding: 0.2rem 0;
+      font-size: 0.875rem;
+      border-bottom: 1px solid #1e1e24;
+    }
+
+    .log-line.error {
+      color: #f87171;
+    }
+
+    .log-line.warn {
+      color: #fbbf24;
+    }
+
+    .log-line.info {
+      color: #86efac;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      padding: 0;
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <h2><span class="status-dot"></span> Telegram Forwarder Admin</h2>
+    <div id="stats">Loading stats...</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('routes')">Routes Config</button>
+    <button class="tab" onclick="switchTab('logs')">Live Logs</button>
+  </div>
+
+  <!-- Routes Tab -->
+  <div id="tab-routes" class="content-section active">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+      <h3>Configured Routes</h3>
+      <button class="btn primary" onclick="openModal()">+ Add New Route</button>
+    </div>
+
+    <table id="routes-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Source</th>
+          <th>Telegram Dest</th>
+          <th>WhatsApp Dest</th>
+          <th>Schedule</th>
+          <th>Processing API</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="7">Loading routes...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Logs Tab -->
+  <div id="tab-logs" class="content-section">
+    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center;">
+      <h3>System Logs</h3>
+      <select id="logFilter" style="width: auto; padding: 0.25rem 0.5rem;" onchange="fetchLogs()">
+        <option value="">All Levels</option>
+        <option value="info">Info</option>
+        <option value="warn">Warnings</option>
+        <option value="error">Errors</option>
+      </select>
+      <button class="btn primary small" onclick="fetchLogs()">Refresh</button>
+      <button class="btn danger small" onclick="clearLogs()">Clear</button>
+    </div>
+    <div class="log-viewer" id="log-viewer"></div>
+  </div>
+
+  <!-- Route Modal (Create/Edit) -->
+  <div class="modal" id="routeModal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Add Route</h3>
+      <form id="routeForm" onsubmit="saveRoute(event)">
+        <input type="hidden" id="routeId">
+
+        <div class="form-group">
+          <label>Route Name / Description</label>
+          <input type="text" id="routeName" required placeholder="e.g. Deals to Main Channel">
+        </div>
+
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="routeEnabled" checked>
+          <label style="margin: 0; color: white;">Route Enabled</label>
+        </div>
+
+        <div class="form-group">
+          <label>Source Channel</label>
+          <select id="routeSource" required>
+            <option value="">Loading channels...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Telegram Destinations (Hold Cmd/Ctrl to select multiple)</label>
+          <select id="routeDestinations" multiple required>
+            <option value="">Loading channels...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>WhatsApp Destinations (Comma separated, e.g. 123@g.us, abc@newsletter)</label>
+          <input type="text" id="routeWaDestinations" placeholder="List of WhatsApp IDs...">
+        </div>
+
+        <h4 style="margin-top:2rem; border-bottom: 1px solid var(--border); padding-bottom:0.5rem;">Schedule (Time-based
+          Routing)</h4>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="schedEnabled">
+          <label style="margin: 0; color: white;">Enable Schedule Restriction</label>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <div class="form-group" style="flex:1">
+            <label>Start Time (HH:MM)</label>
+            <input type="time" id="schedStart" value="00:00">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>End Time (HH:MM)</label>
+            <input type="time" id="schedEnd" value="23:59">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Timezone (e.g. Asia/Kolkata or Local)</label>
+          <input type="text" id="schedTimezone" value="Local" placeholder="Local">
+        </div>
+
+        <h4 style="margin-top:2rem; border-bottom: 1px solid var(--border); padding-bottom:0.5rem;">Affiliate Processing
+        </h4>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="procEnabled"
+            onchange="document.getElementById('procUrl').disabled = !this.checked">
+          <label style="margin: 0; color: white;">Enable Microservice Processing</label>
+        </div>
+        <div class="form-group">
+          <label>Processing API URL (POST)</label>
+          <input type="url" id="procUrl" placeholder="https://api.example.com/convert" disabled>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="procSkipError" checked>
+          <label style="margin: 0;">Fallback: Forward original if API fails</label>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: flex-end;">
+          <button type="button" class="btn" style="background:var(--border);" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn primary">Save Route</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Auth Modal (Telegram Login) -->
+  <div class="modal" id="authModal" style="background: rgba(0,0,0,0.9);">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <h3 id="authTitle">Telegram Authentication Required</h3>
+      <p id="authDesc" style="color: var(--text-muted); margin-bottom: 1.5rem;">Connecting to Telegram...</p>
+
+      <form id="authForm" onsubmit="submitAuth(event)" style="display: none;">
+        <div class="form-group">
+          <input type="text" id="authInput" required style="text-align: center; font-size: 1.25rem;">
+        </div>
+        <button type="submit" class="btn primary" style="width: 100%;">Submit</button>
+      </form>
+      <div id="authLoading" style="display: block; padding: 2rem;">
+        <span class="badge yellow">Waiting for backend...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let channelsList = [];
+    let state = { routes: [] };
+    let editingId = null;
+
+    // UI State
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+      document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+
+      if (tabId === 'logs' && !window.sseConnected) connectSSE();
+    }
+
+    // Modal
+    function openModal(route = null) {
+      editingId = route ? route.id : null;
+      document.getElementById('modalTitle').textContent = route ? 'Edit Route' : 'Add Route';
+
+      document.getElementById('routeId').value = route?.id || '';
+      document.getElementById('routeName').value = route?.name || '';
+      document.getElementById('routeEnabled').checked = route ? route.enabled : true;
+      document.getElementById('routeSource').value = route?.source || '';
+
+      // Select destinations
+      const destSelect = document.getElementById('routeDestinations');
+      Array.from(destSelect.options).forEach(opt => {
+        opt.selected = route?.destinations?.includes(opt.value);
+      });
+
+      document.getElementById('routeWaDestinations').value = (route?.waDestinations || []).join(', ');
+
+      document.getElementById('procEnabled').checked = route?.processing?.enabled || false;
+      document.getElementById('procUrl').value = route?.processing?.url || '';
+      document.getElementById('procUrl').disabled = !document.getElementById('procEnabled').checked;
+      document.getElementById('procSkipError').checked = route?.processing?.skipOnError !== false;
+
+      document.getElementById('schedEnabled').checked = route?.schedule?.enabled || false;
+      document.getElementById('schedStart').value = route?.schedule?.startTime || '00:00';
+      document.getElementById('schedEnd').value = route?.schedule?.endTime || '23:59';
+      document.getElementById('schedTimezone').value = route?.schedule?.timezone || 'Local';
+
+      document.getElementById('routeModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('routeModal').classList.remove('active');
+    }
+
+    // API Calls
+    async function loadData() {
+      try {
+        // Fetch channels once
+        if (channelsList.length === 0) {
+          const chRes = await fetch('/api/channels').then(r => r.json());
+          if (chRes.success) {
+            channelsList = chRes.channels;
+            populateChannelDropdowns();
+          }
+        }
+
+        // Fetch stats
+        const stRes = await fetch('/status').then(r => r.json());
+        document.getElementById('stats').innerHTML = `
+          <span class="badge blue">Uptime: ${Math.floor(stRes.uptime / 60)}m</span>
+          <span class="badge green">Routes: ${stRes.enabledRoutes}/${stRes.totalRoutes} Active</span>
+        `;
+
+        // Fetch routes
+        const rRes = await fetch('/api/routes').then(r => r.json());
+        if (rRes.success) {
+          state.routes = rRes.routes;
+          renderRoutes();
+        }
+      } catch (err) {
+        console.error('Failed to load data', err);
+      }
+    }
+
+    function populateChannelDropdowns() {
+      const src = document.getElementById('routeSource');
+      const dst = document.getElementById('routeDestinations');
+
+      const opts = channelsList.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('');
+      src.innerHTML = '<option value="">Select source...</option>' + opts;
+      dst.innerHTML = opts;
+    }
+
+    function getChannelName(id) {
+      const ch = channelsList.find(c => c.id === String(id));
+      return ch ? ch.name : id;
+    }
+
+    function renderRoutes() {
+      const tbody = document.querySelector('#routes-table tbody');
+      if (state.routes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6">No routes configured.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = state.routes.map(r => `
+        <tr>
+          <td><strong>${r.name || 'Unnamed'}</strong><br><small style="color:var(--text-muted)">${r.id}</small></td>
+          <td><span class="badge ${r.enabled ? 'green' : 'red'}">${r.enabled ? 'Active' : 'Disabled'}</span></td>
+          <td>${getChannelName(r.source)}</td>
+          <td>${r.destinations.map(d => `<div style="font-size:0.875rem">${getChannelName(d)}</div>`).join('')}</td>
+          <td>${(r.waDestinations || []).map(d => `<div style="font-size:0.875rem; color:#86efac;">${d}</div>`).join('') || '<span style="color:var(--text-muted)">None</span>'}</td>
+          <td>
+            ${r.schedule?.enabled
+          ? `<span class="badge blue">⌚ ${r.schedule.startTime} - ${r.schedule.endTime}</span><br><small style="font-size:10px">${r.schedule.timezone || 'Local'}</small>`
+          : '<span class="badge" style="background:var(--border)">Always Active</span>'}
+          </td>
+          <td>
+            ${r.processing?.enabled
+          ? `<span class="badge yellow">API Enabled</span><br><small style="font-size:10px">${r.processing.url}</small>`
+          : '<span class="badge" style="background:var(--border)">Disabled</span>'}
+          </td>
+          <td>
+            <button class="btn small" style="background:#475569" onclick="editRoute('${r.id}')">Edit</button>
+            <button class="btn danger small" onclick="deleteRoute('${r.id}')">Del</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function editRoute(id) {
+      const route = state.routes.find(r => r.id === id);
+      if (route) openModal(route);
+    }
+
+    async function deleteRoute(id) {
+      if (!confirm('Delete this route?')) return;
+      await fetch(`/api/routes/${id}`, { method: 'DELETE' });
+      loadData();
+    }
+
+    async function saveRoute(e) {
+      e.preventDefault();
+
+      const destSelect = document.getElementById('routeDestinations');
+      const destinations = Array.from(destSelect.selectedOptions).map(o => o.value);
+
+      const waRaw = document.getElementById('routeWaDestinations').value;
+      const waDestinations = waRaw ? waRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+      const payload = {
+        name: document.getElementById('routeName').value,
+        enabled: document.getElementById('routeEnabled').checked,
+        source: document.getElementById('routeSource').value,
+        destinations,
+        waDestinations,
+        schedule: {
+          enabled: document.getElementById('schedEnabled').checked,
+          startTime: document.getElementById('schedStart').value,
+          endTime: document.getElementById('schedEnd').value,
+          timezone: document.getElementById('schedTimezone').value || 'Local'
+        },
+        processing: {
+          enabled: document.getElementById('procEnabled').checked,
+          url: document.getElementById('procUrl').value,
+          skipOnError: document.getElementById('procSkipError').checked
+        }
+      };
+
+      const id = document.getElementById('routeId').value;
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `/api/routes/${id}` : '/api/routes';
+
+      if (id) payload.id = id;
+
+      await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      closeModal();
+      loadData();
+    }
+
+    // Logs Logic
+    function renderLogLines(logs) {
+      const viewer = document.getElementById('log-viewer');
+      const filter = document.getElementById('logFilter').value;
+
+      viewer.innerHTML = logs
+        .filter(l => !filter || l.level === filter)
+        .map(l => `<p class="log-line ${l.level}">[${l.timestamp.split('T')[1].slice(0, 8)}] [${l.level.toUpperCase()}] ${l.message}</p>`)
+        .join('');
+
+      viewer.scrollTop = viewer.scrollHeight;
+    }
+
+    async function fetchLogs() {
+      const limit = document.getElementById('logFilter').value ? 500 : 200;
+      const res = await fetch(`/api/logs?limit=${limit}`).then(r => r.json());
+      renderLogLines(res.logs);
+    }
+
+    async function clearLogs() {
+      await fetch('/api/logs', { method: 'DELETE' });
+      document.getElementById('log-viewer').innerHTML = '';
+    }
+
+    function connectSSE() {
+      if (window.sseConnected) return;
+      window.sseConnected = true;
+
+      const source = new EventSource('/api/logs/stream');
+      source.onmessage = (e) => {
+        const log = JSON.parse(e.data);
+        const filter = document.getElementById('logFilter').value;
+        if (filter && log.level !== filter) return;
+
+        const viewer = document.getElementById('log-viewer');
+        const p = document.createElement('p');
+        p.className = `log-line ${log.level}`;
+        p.textContent = `[${log.timestamp.split('T')[1].slice(0, 8)}] [${log.level.toUpperCase()}] ${log.message}`;
+        viewer.appendChild(p);
+
+        if (viewer.childNodes.length > 500) viewer.removeChild(viewer.firstChild);
+        if (viewer.scrollHeight - viewer.scrollTop < 600) viewer.scrollTop = viewer.scrollHeight;
+      };
+    }
+
+    // Telegram UI Auth Polling
+    async function checkAuth() {
+      try {
+        const stRes = await fetch('/status').then(r => r.json());
+        if (stRes.needsAuth) {
+          document.getElementById('authModal').classList.add('active');
+          document.getElementById('authLoading').style.display = 'none';
+          document.getElementById('authForm').style.display = 'block';
+
+          const input = document.getElementById('authInput');
+          const desc = document.getElementById('authDesc');
+
+          if (stRes.authType === 'phone') {
+            desc.textContent = 'Enter your Telegram phone number (e.g. +919876543210)';
+            input.placeholder = '+1234567890';
+            input.type = 'tel';
+          } else if (stRes.authType === 'code') {
+            desc.textContent = 'Enter the OTP sent to your Telegram app';
+            input.placeholder = '12345';
+            input.type = 'text';
+          } else if (stRes.authType === 'password') {
+            desc.textContent = 'Enter your 2FA password';
+            input.placeholder = 'Password';
+            input.type = 'password';
+          }
+
+          document.getElementById('authForm').dataset.type = stRes.authType;
+        } else {
+          document.getElementById('authModal').classList.remove('active');
+        }
+      } catch (err) { }
+    }
+
+    async function submitAuth(e) {
+      e.preventDefault();
+      const type = e.target.dataset.type;
+      const value = document.getElementById('authInput').value;
+
+      document.getElementById('authForm').style.display = 'none';
+      document.getElementById('authLoading').style.display = 'block';
+      document.getElementById('authDesc').textContent = 'Sending to Telegram...';
+
+      try {
+        await fetch(`/api/auth/${type}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value })
+        });
+        document.getElementById('authInput').value = '';
+      } catch (err) {
+        alert('Failed to submit auth data');
+      }
+    }
+
+    setInterval(checkAuth, 2500);
+    checkAuth();
+
+    // Init
+    loadData();
+    // Auto-refresh disabled because it resets modal state
+    // setInterval(loadData, 5000); 
+  </script>
+</body>
+
+</html>
