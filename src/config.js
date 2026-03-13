@@ -24,7 +24,10 @@ function loadConfig(configPath) {
     const absPath = path.resolve(configPath);
 
     if (!fs.existsSync(absPath)) {
-        throw new Error(`Routes config not found at: ${absPath}`);
+        logger.info(`[Config] Routes config not found at: ${absPath}. Creating default empty config.`);
+        const dir = path.dirname(absPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(absPath, JSON.stringify({ routes: [] }, null, 2));
     }
 
     const raw = fs.readFileSync(absPath, 'utf-8');

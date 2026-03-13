@@ -12,6 +12,8 @@ const whatsapp = require('./whatsapp');
 
 function saveRoutesConfig(routes) {
     const configPath = path.resolve(process.env.ROUTES_CONFIG_PATH || './config/routes.json');
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(configPath, JSON.stringify({ routes }, null, 2));
 }
 
