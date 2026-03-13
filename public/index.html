@@ -323,7 +323,11 @@
         </div>
 
         <div class="form-group">
-          <label>WhatsApp Destinations (Comma separated, e.g. 123@g.us, abc@newsletter)</label>
+          <label style="display: flex; justify-content: space-between;">
+            <span>WhatsApp Destinations (Comma separated)</span>
+            <a href="#" onclick="openWaContactsModal(); return false;"
+              style="color: var(--primary); text-decoration: none; font-size: 0.8rem;">🔍 Find ID</a>
+          </label>
           <input type="text" id="routeWaDestinations" placeholder="List of WhatsApp IDs...">
         </div>
 
@@ -387,6 +391,20 @@
       <div id="authLoading" style="display: block; padding: 2rem;">
         <span class="badge yellow">Waiting for backend...</span>
       </div>
+    </div>
+  </div>
+
+  <!-- WhatsApp Contacts Modal -->
+  <div class="modal" id="waContactsModal" style="z-index: 60;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">WhatsApp Contacts & Channels</h3>
+        <button class="btn small" style="background:var(--border);" onclick="closeWaContactsModal()">Close</button>
+      </div>
+      <div id="waContactsLoading" style="text-align: center; padding: 2rem;">
+        <span style="color: var(--text-muted);">Fetching from WAHA...</span>
+      </div>
+      <div id="waContactsList" style="max-height: 400px; overflow-y: auto; display: none;"></div>
     </div>
   </div>
 
@@ -673,10 +691,71 @@
     setInterval(checkAuth, 2500);
     checkAuth();
 
+    // WhatsApp Contacts Lookup
+    async function openWaContactsModal() {
+      document.getElementById('waContactsModal').classList.add('active');
+      document.getElementById('waContactsLoading').style.display = 'block';
+      document.getElementById('waContactsList').style.display = 'none';
+      document.getElementById('waContactsList').innerHTML = '';
+
+      try {
+        const res = await fetch('/api/whatsapp/contacts').then(r => r.json());
+        if (!res.success) throw new Error(res.error || 'Failed to fetch');
+
+        let html = '';
+
+        if (res.channels && res.channels.data.length > 0) {
+          console.log(res.channels);
+          html += '<h4 style="margin-bottom: 0.5rem; color: var(--text-muted);">Channels</h4>';
+          html += res.channels.data.map(c => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg); margin-bottom: 0.5rem; border-radius: 6px;">
+              <div><strong>${c.name}</strong><br><small style="color:var(--text-muted)">${c.id}</small></div>
+              <button class="btn small primary" onclick="addWaContact('${c.id}')">Add</button>
+            </div>
+          `).join('');
+        }
+
+        if (res.chats && res.chats.data.length > 0) {
+          html += '<h4 style="margin-bottom: 0.5rem; margin-top: 1rem; color: var(--text-muted);">Chats / Groups</h4>';
+          html += res.chats.data.map(c => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg); margin-bottom: 0.5rem; border-radius: 6px;">
+              <div><strong>${c.name || 'Unknown'}</strong><br><small style="color:var(--text-muted)">${c.id}</small></div>
+              <button class="btn small primary" onclick="addWaContact('${c.id}')">Add</button>
+            </div>
+          `).join('');
+        }
+
+        if (html === '') {
+          html = '<p style="text-align: center; color: var(--text-muted);">No contacts found.</p>';
+        }
+
+        document.getElementById('waContactsList').innerHTML = html;
+      } catch (err) {
+        document.getElementById('waContactsList').innerHTML = `<p style="color: var(--danger); text-align: center;">Error: WAHA base URL or API key might be missing.</p>`;
+      } finally {
+        document.getElementById('waContactsLoading').style.display = 'none';
+        document.getElementById('waContactsList').style.display = 'block';
+      }
+    }
+
+    function closeWaContactsModal() {
+      document.getElementById('waContactsModal').classList.remove('active');
+    }
+
+    function addWaContact(id) {
+      const input = document.getElementById('routeWaDestinations');
+      let current = input.value.split(',').map(s => s.trim()).filter(Boolean);
+      if (!current.includes(id)) {
+        current.push(id);
+        input.value = current.join(', ');
+      }
+      closeWaContactsModal();
+    }
+
     // Init
     loadData();
     // Auto-refresh disabled because it resets modal state
-    // setInterval(loadData, 5000); 
+    // setInterval(loadData, 5000);
   </script>
 </body>
 

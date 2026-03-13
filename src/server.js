@@ -4,6 +4,7 @@ const path = require('path');
 const { loadConfig } = require('./config');
 const logger = require('./utils/logger');
 const logStore = require('./utils/logStore');
+const whatsapp = require('./whatsapp');
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Helpers
@@ -135,6 +136,31 @@ function createServer(state) {
         try {
             const channels = await fetchChannels(state.telegramClient);
             res.json({ success: true, channels });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    /**
+     * GET /api/whatsapp/contacts
+     * Proxies request to WAHA API to fetch all WhatsApp chats and channels
+     */
+    app.get('/api/whatsapp/contacts', async (req, res) => {
+        try {
+            const [chatsRes, channelsRes] = await Promise.all([
+                whatsapp.getChats(),
+                whatsapp.getChannels()
+            ]);
+
+            res.json({
+                success: true,
+                chats: chatsRes.success ? chatsRes.data : [],
+                channels: channelsRes.success ? channelsRes.data : [],
+                errors: {
+                    chats: chatsRes.success ? null : 'Failed to fetch chats',
+                    channels: channelsRes.success ? null : 'Failed to fetch channels'
+                }
+            });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }
