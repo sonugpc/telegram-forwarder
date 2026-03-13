@@ -390,6 +390,11 @@
       </form>
       <div id="authLoading" style="display: block; padding: 2rem;">
         <span class="badge yellow">Waiting for backend...</span>
+        <div style="margin-top: 1rem;">
+          <a href="#" onclick="resetAuthForm(); return false;"
+            style="font-size: 0.8rem; color: var(--text-muted); text-decoration: underline;">Taking too long? Click to
+            retry</a>
+        </div>
       </div>
     </div>
   </div>
@@ -634,11 +639,20 @@
       };
     }
 
+    let lastSubmittedAuthStepId = null;
+
+    function resetAuthForm() {
+      lastSubmittedAuthStepId = null;
+      checkAuth();
+    }
+
     // Telegram UI Auth Polling
     async function checkAuth() {
       try {
         const stRes = await fetch('/status').then(r => r.json());
         if (stRes.needsAuth) {
+          if (lastSubmittedAuthStepId === stRes.authStepId) return;
+
           document.getElementById('authModal').classList.add('active');
           document.getElementById('authLoading').style.display = 'none';
           document.getElementById('authForm').style.display = 'block';
@@ -661,6 +675,7 @@
           }
 
           document.getElementById('authForm').dataset.type = stRes.authType;
+          document.getElementById('authForm').dataset.stepId = stRes.authStepId;
         } else {
           document.getElementById('authModal').classList.remove('active');
         }
@@ -670,7 +685,10 @@
     async function submitAuth(e) {
       e.preventDefault();
       const type = e.target.dataset.type;
+      const stepId = parseInt(e.target.dataset.stepId, 10);
       const value = document.getElementById('authInput').value;
+
+      lastSubmittedAuthStepId = stepId;
 
       document.getElementById('authForm').style.display = 'none';
       document.getElementById('authLoading').style.display = 'block';

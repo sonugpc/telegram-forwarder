@@ -37,10 +37,10 @@ function saveSession(sessionFile, sessionString) {
 
 /**
  * Initializes and authenticates the MTProto Telegram client.
- * On first run, assigns promises to `authResolvers` so the web UI can provide auth info.
+ * On first run, assigns promises to `state.authResolvers` so the web UI can provide auth info.
  * Subsequent runs reuse the saved session string.
  */
-async function createClient(authResolvers = {}) {
+async function createClient(state = { authResolvers: {} }) {
     if (clientInstance) return clientInstance;
 
     const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
@@ -72,16 +72,22 @@ async function createClient(authResolvers = {}) {
 
     await client.start({
         phoneNumber: async () => {
+            state.needsAuth = 'phone';
+            state.authStepId = Date.now();
             logger.info('[Client] 🔐 First-time auth: Waiting for phone number via UI...');
-            return new Promise(resolve => { authResolvers['phone'] = resolve; });
+            return new Promise(resolve => { state.authResolvers['phone'] = resolve; });
         },
         password: async () => {
+            state.needsAuth = 'password';
+            state.authStepId = Date.now();
             logger.info('[Client] 🔐 Two-step verification enabled: Waiting for password via UI...');
-            return new Promise(resolve => { authResolvers['password'] = resolve; });
+            return new Promise(resolve => { state.authResolvers['password'] = resolve; });
         },
         phoneCode: async () => {
+            state.needsAuth = 'code';
+            state.authStepId = Date.now();
             logger.info('[Client] 🔐 OTP sent to your Telegram app / SMS: Waiting for code via UI...');
-            return new Promise(resolve => { authResolvers['code'] = resolve; });
+            return new Promise(resolve => { state.authResolvers['code'] = resolve; });
         },
         onError: (err) => {
             logger.error(`[Client] Auth error: ${err.message}`);

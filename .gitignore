@@ -3,3 +3,4 @@ session.json
 .env
 logs/
 *.log
+config/*

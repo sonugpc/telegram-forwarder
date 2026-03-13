@@ -106,6 +106,7 @@ function createServer(state) {
             startedAt: state.startedAt,
             needsAuth: !!state.needsAuth,
             authType: state.needsAuth || null,
+            authStepId: state.authStepId || null,
             totalRoutes: routeSummary.length,
             enabledRoutes: routeSummary.filter((r) => r.enabled).length,
             routes: routeSummary,

@@ -45,8 +45,7 @@ async function main() {
     // 3. Initialize and authenticate MTProto client
     let client;
     try {
-        state.needsAuth = 'phone';
-        client = await createClient(state.authResolvers);
+        client = await createClient(state);
         state.needsAuth = null;
     } catch (err) {
         logger.error(`[Main] Failed to initialize Telegram client: ${err.message}`);
