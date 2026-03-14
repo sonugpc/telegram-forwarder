@@ -9,6 +9,7 @@ async function sendText(client, destination, text) {
     await client.sendMessage(destination, {
         message: text,
         parseMode: 'md',
+        linkPreview: false,
     });
 }
 
