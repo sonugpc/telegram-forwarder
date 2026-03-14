@@ -171,19 +171,25 @@ async function processMessage(route, gramjsMessage) {
         const data = response.data;
 
         if (!data.success) {
-            logger.warn(`[Processor] API returned success=false for route "${route.id}", msg ${gramjsMessage.id}`);
+            logger.warn(`[Processor] API returned success=false for route "${route.id}", msg ${gramjsMessage.id}. Message: ${data.message || 'None'}`);
             return { message: null, skip: false, error: 'API returned success=false' };
         }
 
         if (data.skip === true) {
-            logger.info(`[Processor] API requested skip for route "${route.id}", msg ${gramjsMessage.id}`);
+            logger.info(`[Processor] API requested skip for route "${route.id}", msg ${gramjsMessage.id}. Message: ${data.message || 'None'}`);
             return { message: null, skip: true };
         }
 
+        logger.info(`[Processor] API returned success=true for route "${route.id}", msg ${gramjsMessage.id}. Message: ${data.message || 'None'}`);
         return { message: data.message || gramjsMessage.message, skip: false };
     } catch (err) {
-        logger.error(`[Processor] API call failed for route "${route.id}", msg ${gramjsMessage.id}: ${err.message}`);
-        return { message: null, skip: false, error: err.message };
+        let errorMsg = err.message;
+        if (err.response && err.response.data) {
+            const responseMsg = err.response.data.message || JSON.stringify(err.response.data);
+            errorMsg += ` - API Message: ${responseMsg}`;
+        }
+        logger.error(`[Processor] API call failed for route "${route.id}", msg ${gramjsMessage.id}: ${errorMsg}`);
+        return { message: null, skip: false, error: errorMsg };
     }
 }
 

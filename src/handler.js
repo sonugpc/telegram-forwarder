@@ -82,8 +82,16 @@ async function handleMessageWithMap(client, sourceMap, event) {
 
     if (routes.length === 0) return;
 
+    let fromName = channelId;
+    try {
+        const chat = await client.getEntity(message.peerId);
+        fromName = chat.username ? `@${chat.username}` : (chat.title || chat.firstName || channelId);
+    } catch (err) {
+        // Ignore entity fetch error
+    }
+
     logger.info(
-        `[Handler] 📨 Incoming message ${message.id} from ${channelId} — matched ${routes.length} route(s)`
+        `[Handler] 📨 Incoming message ${message.id} from ${fromName} — matched ${routes.length} route(s)`
     );
 
     const mediaType = getMediaType(message.media);

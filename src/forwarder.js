@@ -74,11 +74,19 @@ async function forwardMessage(client, route, originalMessage, processedText, med
 
     // 1. Forward to Telegram destinations
     for (const destination of destinations) {
+        let destName = destination;
+        try {
+            const destEntity = await client.getEntity(destination);
+            destName = destEntity.username ? `@${destEntity.username}` : (destEntity.title || destEntity.firstName || destination);
+        } catch (err) {
+            // Unresolved entity, keep as is
+        }
+
         try {
             if (hasMedia && isMediaAllowed(route, mediaType)) {
                 // Caption = processed/original text
                 logger.info(
-                    `[Forwarder] → Sending ${mediaType} to ${destination} (route: ${route.id})`
+                    `[Forwarder] → Sending ${mediaType} to ${destName} (route: ${route.id})`
                 );
                 await sendMedia(client, destination, originalMessage, textToSend);
             } else if (hasMedia && !isMediaAllowed(route, mediaType)) {
@@ -92,17 +100,17 @@ async function forwardMessage(client, route, originalMessage, processedText, med
             } else if (hasText && route.filters?.allowText !== false) {
                 // Pure text message
                 logger.info(
-                    `[Forwarder] → Sending text message to ${destination} (route: ${route.id})`
+                    `[Forwarder] → Sending text message to ${destName} (route: ${route.id})`
                 );
                 await sendText(client, destination, textToSend);
             } else {
                 logger.info(
-                    `[Forwarder] Message filtered out for route "${route.id}" to ${destination} — no text or allowed media`
+                    `[Forwarder] Message filtered out for route "${route.id}" to ${destName} — no text or allowed media`
                 );
             }
         } catch (err) {
             logger.error(
-                `[Forwarder] Failed to send to ${destination} (route: ${route.id}): ${err.message}`
+                `[Forwarder] Failed to send to ${destName} (route: ${route.id}): ${err.message}`
             );
         }
     }
