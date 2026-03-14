@@ -418,15 +418,107 @@
     let state = { routes: [] };
     let editingId = null;
 
-    // UI State
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-      document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
-      document.getElementById(`tab-${tabId}`).classList.add('active');
+// UI State
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+  document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+  document.getElementById(`tab-${tabId}`).classList.add('active');
 
-      if (tabId === 'logs' && !window.sseConnected) connectSSE();
+  if (tabId === 'logs' && !window.sseConnected) connectSSE();
+}
+
+// Authentication
+let authState = {
+  isLoggedIn: false,
+  token: null,
+  lastAuthCheck: 0
+};
+
+function checkAuthStatus() {
+  const now = Date.now();
+  if (now - authState.lastAuthCheck < 30000) return; // Check every 30 seconds
+  authState.lastAuthCheck = now;
+
+  fetch('/status', { credentials: 'include' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'running') {
+        authState.isLoggedIn = true;
+        updateAuthUI();
+      } else {
+        authState.isLoggedIn = false;
+        updateAuthUI();
+      }
+    })
+    .catch(err => {
+      authState.isLoggedIn = false;
+      updateAuthUI();
+    });
+}
+
+function login() {
+  const password = prompt('Enter admin password:');
+  if (!password) return;
+
+  fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      authState.isLoggedIn = true;
+      authState.token = data.token;
+      localStorage.setItem('authState', JSON.stringify(authState));
+      updateAuthUI();
+      loadData();
+    } else {
+      alert('Login failed: ' + data.error);
     }
+  })
+  .catch(err => {
+    alert('Login failed: ' + err.message);
+  });
+}
+
+function logout() {
+  fetch('/api/auth/logout', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      authState.isLoggedIn = false;
+      authState.token = null;
+      localStorage.setItem('authState', JSON.stringify(authState));
+      updateAuthUI();
+    })
+    .catch(err => {
+      console.error('Logout error:', err);
+    });
+}
+
+function updateAuthUI() {
+  const authBtn = document.querySelector('.auth-btn');
+  if (authState.isLoggedIn) {
+    authBtn.textContent = 'Logout';
+    authBtn.onclick = logout;
+    document.querySelectorAll('.protected').forEach(el => el.style.display = 'block');
+  } else {
+    authBtn.textContent = 'Login';
+    authBtn.onclick = login;
+    document.querySelectorAll('.protected').forEach(el => el.style.display = 'none');
+  }
+}
+
+// Add auth button to header
+function addAuthButton() {
+  const header = document.querySelector('.header');
+  const authBtn = document.createElement('button');
+  authBtn.className = 'btn small auth-btn';
+  authBtn.textContent = 'Login';
+  authBtn.onclick = login;
+  header.appendChild(authBtn);
+}
 
     // Modal
     function openModal(route = null) {
@@ -770,10 +862,20 @@
       closeWaContactsModal();
     }
 
-    // Init
-    loadData();
-    // Auto-refresh disabled because it resets modal state
-    // setInterval(loadData, 5000);
+// Init
+// Check for saved auth state
+const savedAuth = localStorage.getItem('authState');
+if (savedAuth) {
+  authState = JSON.parse(savedAuth);
+}
+
+addAuthButton();
+checkAuthStatus();
+setInterval(checkAuthStatus, 30000);
+
+loadData();
+// Auto-refresh disabled because it resets modal state
+// setInterval(loadData, 5000);
   </script>
 </body>
 
