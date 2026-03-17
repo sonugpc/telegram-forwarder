@@ -1,4 +1,4 @@
-const { Api } = require('telegram');
+const { Api } = require('teleproto');
 const logger = require('./utils/logger');
 const whatsapp = require('./whatsapp');
 

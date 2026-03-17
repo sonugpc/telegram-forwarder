@@ -1,4 +1,4 @@
-const { NewMessage } = require('telegram/events');
+const { NewMessage } = require('teleproto/events');
 const logger = require('./utils/logger');
 const { getRoutesForSource } = require('./config');
 const { processMessage, getMediaType } = require('./processor');
@@ -67,14 +67,14 @@ async function handleMessageWithMap(client, sourceMap, event) {
 
     let routes = getRoutesForSource(sourceMap, channelId);
     if (routes.length === 0) {
-        logger.debug(`[Handler] No enabled routes for channel ${channelId} — ignoring`);
+        logger.info(`[Handler] No enabled routes for channel ${channelId} — ignoring`);
         return;
     }
 
     // Apply schedule logic
     routes = routes.filter(r => {
         if (!isRouteActive(r.schedule)) {
-            logger.debug(`[Handler] Route "${r.id}" is outside active schedule window — skipping`);
+            logger.info(`[Handler] Route "${r.id}" is outside active schedule window — skipping`);
             return false;
         }
         return true;
