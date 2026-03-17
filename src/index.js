@@ -2,7 +2,7 @@
 
 require('dotenv').config();
 
-const { NewMessage } = require('telegram/events');
+const { NewMessage } = require('teleproto/events');
 const logger = require('./utils/logger');
 const { createClient } = require('./client');
 const { loadConfig } = require('./config');
