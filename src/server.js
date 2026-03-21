@@ -5,6 +5,7 @@ const { loadConfig } = require("./config");
 const logger = require("./utils/logger");
 const logStore = require("./utils/logStore");
 const whatsapp = require("./whatsapp");
+const statsModel = require("./db/models/stats");
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Helpers
@@ -111,6 +112,7 @@ function createServer(state) {
       source: r.source,
       destinations: r.destinations,
       waDestinations: r.waDestinations || [],
+      wpDestinations: r.wpDestinations || [],
       processing: {
         enabled: r.processing?.enabled || false,
         url: r.processing?.url || "",
@@ -148,12 +150,10 @@ function createServer(state) {
       state.authResolvers[type](value);
       res.json({ success: true });
     } else {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: `No active auth request of type ${type}`,
-        });
+      res.status(400).json({
+        success: false,
+        error: `No active auth request of type ${type}`,
+      });
     }
   });
 
@@ -219,12 +219,10 @@ function createServer(state) {
         !Array.isArray(body.destinations) ||
         body.destinations.length === 0
       ) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "source and destinations are required",
-          });
+        return res.status(400).json({
+          success: false,
+          error: "source and destinations are required",
+        });
       }
 
       const newRoute = {
@@ -235,6 +233,14 @@ function createServer(state) {
         destinations: body.destinations.map(String),
         waDestinations: Array.isArray(body.waDestinations)
           ? body.waDestinations.map(String)
+          : [],
+        wpDestinations: Array.isArray(body.wpDestinations)
+          ? body.wpDestinations
+              .map((d) => ({
+                endpoint: String(d.endpoint || ""),
+                siteurl: String(d.siteurl || ""),
+              }))
+              .filter((d) => d.endpoint)
           : [],
         processing: {
           enabled: body.processing?.enabled || false,
@@ -310,6 +316,14 @@ function createServer(state) {
         waDestinations: body.waDestinations
           ? body.waDestinations.map(String)
           : routes[idx].waDestinations || [],
+        wpDestinations: body.wpDestinations
+          ? body.wpDestinations
+              .map((d) => ({
+                endpoint: String(d.endpoint || ""),
+                siteurl: String(d.siteurl || ""),
+              }))
+              .filter((d) => d.endpoint)
+          : routes[idx].wpDestinations || [],
         processing: {
           ...routes[idx].processing,
           ...body.processing,
@@ -390,6 +404,36 @@ function createServer(state) {
       res.json({ success: true, message: `Reloaded ${routes.length} routes` });
     } catch (err) {
       logger.error(`[Server] Routes reload failed: ${err.message}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ─── Logs API ──────────────────────────────────────────────────────────────
+
+  // ─── Stats API ─────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/stats
+   * Returns aggregated forwarding statistics from the local JSON store.
+   */
+  app.get("/api/stats", requireAuth, (req, res) => {
+    try {
+      res.json({ success: true, ...statsModel.getStats() });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  /**
+   * DELETE /api/stats
+   * Resets all forwarding statistics.
+   */
+  app.delete("/api/stats", requireAuth, (req, res) => {
+    try {
+      statsModel.reset();
+      logger.info("[Server] Forwarding stats reset");
+      res.json({ success: true });
+    } catch (err) {
       res.status(500).json({ success: false, error: err.message });
     }
   });

@@ -232,6 +232,37 @@
       padding: 0;
       margin-right: 0.5rem;
     }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    #card-telegram .stat-value { color: #60a5fa; }
+    #card-whatsapp .stat-value { color: #34d399; }
+    #card-wordpress .stat-value { color: #a78bfa; }
+    #card-failed   .stat-value { color: #f87171; }
+
+    .wp-dest-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
   </style>
 </head>
 
@@ -243,12 +274,45 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('routes')">Routes Config</button>
+    <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="tab" onclick="switchTab('routes')">Routes Config</button>
     <button class="tab" onclick="switchTab('logs')">Live Logs</button>
   </div>
 
-  <!-- Routes Tab -->
-  <div id="tab-routes" class="content-section active">
+  <!-- Dashboard Tab -->
+  <div id="tab-dashboard" class="content-section active">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h3 style="margin:0;">Forwarding Dashboard</h3>
+      <button class="btn danger small" onclick="resetStats()">Reset Stats</button>
+    </div>
+
+    <!-- Summary cards -->
+    <div id="stats-cards" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:2rem;">
+      <div class="stat-card" id="card-total"><div class="stat-label">Total Messages</div><div class="stat-value" id="stat-total">—</div></div>
+      <div class="stat-card" id="card-telegram"><div class="stat-label">Telegram Sends</div><div class="stat-value" id="stat-telegram">—</div></div>
+      <div class="stat-card" id="card-whatsapp"><div class="stat-label">WhatsApp Sends</div><div class="stat-value" id="stat-whatsapp">—</div></div>
+      <div class="stat-card" id="card-wordpress"><div class="stat-label">WordPress Posts</div><div class="stat-value" id="stat-wordpress">—</div></div>
+      <div class="stat-card" id="card-failed"><div class="stat-label">Failed Sends</div><div class="stat-value" id="stat-failed">—</div></div>
+    </div>
+
+    <!-- Per-route breakdown -->
+    <h4 style="margin-bottom:1rem; color:var(--text-muted);">By Route</h4>
+    <table id="stats-table">
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th>Messages</th>
+          <th>Telegram</th>
+          <th>WhatsApp</th>
+          <th>WordPress</th>
+          <th>Failed</th>
+          <th>Last Activity</th>
+        </tr>
+      </thead>
+      <tbody><tr><td colspan="7" style="color:var(--text-muted)">Loading...</td></tr></tbody>
+    </table>
+  </div>
+  <div id="tab-routes" class="content-section">
     <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
       <h3>Configured Routes</h3>
       <button class="btn primary" onclick="openModal()">+ Add New Route</button>
@@ -262,6 +326,7 @@
           <th>Source</th>
           <th>Telegram Dest</th>
           <th>WhatsApp Dest</th>
+          <th>WordPress</th>
           <th>Schedule</th>
           <th>Processing API</th>
           <th>Actions</th>
@@ -330,6 +395,11 @@
           </label>
           <input type="text" id="routeWaDestinations" placeholder="List of WhatsApp IDs...">
         </div>
+
+        <h4 style="margin-top:2rem; border-bottom: 1px solid var(--border); padding-bottom:0.5rem;">WordPress Auto-Post</h4>
+        <p style="color:var(--text-muted); font-size:0.875rem; margin-bottom:0.75rem;">Each entry posts the original message to a WordPress endpoint using PROCESSING_AUTH_TOKEN.</p>
+        <div id="wpDestsList"></div>
+        <button type="button" class="btn small" style="background:var(--border); margin-bottom:1rem;" onclick="addWpDest()">+ Add WordPress Destination</button>
 
         <h4 style="margin-top:2rem; border-bottom: 1px solid var(--border); padding-bottom:0.5rem;">Schedule (Time-based
           Routing)</h4>
@@ -426,6 +496,7 @@ function switchTab(tabId) {
   document.getElementById(`tab-${tabId}`).classList.add('active');
 
   if (tabId === 'logs' && !window.sseConnected) connectSSE();
+  if (tabId === 'dashboard') loadStats();
 }
 
 // Authentication
@@ -538,6 +609,9 @@ function addAuthButton() {
 
       document.getElementById('routeWaDestinations').value = (route?.waDestinations || []).join(', ');
 
+      // WordPress destinations
+      _openModalWpSync(route?.wpDestinations || []);
+
       document.getElementById('procEnabled').checked = route?.processing?.enabled || false;
       document.getElementById('procUrl').value = route?.processing?.url || '';
       document.getElementById('procUrl').disabled = !document.getElementById('procEnabled').checked;
@@ -580,6 +654,9 @@ function addAuthButton() {
           state.routes = rRes.routes;
           renderRoutes();
         }
+
+        // Load dashboard stats on initial load
+        loadStats();
       } catch (err) {
         console.error('Failed to load data', err);
       }
@@ -602,7 +679,7 @@ function addAuthButton() {
     function renderRoutes() {
       const tbody = document.querySelector('#routes-table tbody');
       if (state.routes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6">No routes configured.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9">No routes configured.</td></tr>';
         return;
       }
 
@@ -613,6 +690,9 @@ function addAuthButton() {
           <td>${getChannelName(r.source)}</td>
           <td>${r.destinations.map(d => `<div style="font-size:0.875rem">${getChannelName(d)}</div>`).join('')}</td>
           <td>${(r.waDestinations || []).map(d => `<div style="font-size:0.875rem; color:#86efac;">${d}</div>`).join('') || '<span style="color:var(--text-muted)">None</span>'}</td>
+          <td>${(r.wpDestinations || []).length > 0
+          ? (r.wpDestinations || []).map(d => `<div style="font-size:0.75rem; color:#a78bfa;">${d.siteurl || d.endpoint}</div>`).join('')
+          : '<span style="color:var(--text-muted)">None</span>'}</td>
           <td>
             ${r.schedule?.enabled
           ? `<span class="badge blue">⌚ ${r.schedule.startTime} - ${r.schedule.endTime}</span><br><small style="font-size:10px">${r.schedule.timezone || 'Local'}</small>`
@@ -651,12 +731,16 @@ function addAuthButton() {
       const waRaw = document.getElementById('routeWaDestinations').value;
       const waDestinations = waRaw ? waRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
+      // Collect WordPress destinations from dynamic rows
+      const wpDestinations = getWpDests();
+
       const payload = {
         name: document.getElementById('routeName').value,
         enabled: document.getElementById('routeEnabled').checked,
         source: document.getElementById('routeSource').value,
         destinations,
         waDestinations,
+        wpDestinations,
         schedule: {
           enabled: document.getElementById('schedEnabled').checked,
           startTime: document.getElementById('schedStart').value,
@@ -684,6 +768,88 @@ function addAuthButton() {
 
       closeModal();
       loadData();
+    }
+
+    // ── WordPress Destination Helpers ─────────────────────────────────────────
+    function renderWpDests(wpDests) {
+      const container = document.getElementById('wpDestsList');
+      container.innerHTML = wpDests.map((d, i) => wpDestRow(i, d.endpoint, d.siteurl)).join('');
+    }
+
+    function wpDestRow(idx, endpoint = '', siteurl = '') {
+      return `<div class="wp-dest-row" id="wpRow_${idx}">
+        <input type="url" placeholder="Endpoint URL (POST)" value="${endpoint}" oninput="updateWpDest(${idx},'endpoint',this.value)">
+        <input type="url" placeholder="Site URL (e.g. https://myblog.com)" value="${siteurl}" oninput="updateWpDest(${idx},'siteurl',this.value)">
+        <button type="button" class="btn danger small" onclick="removeWpDest(${idx})">✕</button>
+      </div>`;
+    }
+
+    let _wpDests = [];
+    function addWpDest() {
+      _wpDests.push({ endpoint: '', siteurl: '' });
+      renderWpDests(_wpDests);
+    }
+    function removeWpDest(idx) {
+      _wpDests.splice(idx, 1);
+      renderWpDests(_wpDests);
+    }
+    function updateWpDest(idx, field, val) {
+      if (!_wpDests[idx]) _wpDests[idx] = {};
+      _wpDests[idx][field] = val;
+    }
+    function getWpDests() {
+      // Re-read from DOM to get latest values
+      const rows = document.querySelectorAll('[id^="wpRow_"]');
+      return Array.from(rows).map(row => {
+        const inputs = row.querySelectorAll('input');
+        return { endpoint: inputs[0].value.trim(), siteurl: inputs[1].value.trim() };
+      }).filter(d => d.endpoint);
+    }
+
+    // Override renderWpDests to also sync _wpDests
+    function _openModalWpSync(wpDests) {
+      _wpDests = wpDests.map(d => ({ ...d }));
+      renderWpDests(_wpDests);
+    }
+
+    // ── Stats Dashboard ───────────────────────────────────────────────────────
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/stats').then(r => r.json());
+        if (!res.success) return;
+        const t = res.totals;
+        document.getElementById('stat-total').textContent     = t.messages  ?? 0;
+        document.getElementById('stat-telegram').textContent  = t.telegram  ?? 0;
+        document.getElementById('stat-whatsapp').textContent  = t.whatsapp  ?? 0;
+        document.getElementById('stat-wordpress').textContent = t.wordpress ?? 0;
+        document.getElementById('stat-failed').textContent    = t.failed    ?? 0;
+
+        const tbody = document.querySelector('#stats-table tbody');
+        const routes = Object.entries(res.byRoute || {});
+        if (routes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted)">No data yet — forwards will appear here.</td></tr>';
+        } else {
+          tbody.innerHTML = routes.map(([id, r]) => `
+            <tr>
+              <td><strong>${r.name || id}</strong><br><small style="color:var(--text-muted)">${id}</small></td>
+              <td><span class="badge blue">${r.messages}</span></td>
+              <td>${r.telegram}</td>
+              <td>${r.whatsapp}</td>
+              <td style="color:#a78bfa">${r.wordpress}</td>
+              <td style="color:#f87171">${r.failed}</td>
+              <td><small style="color:var(--text-muted)">${r.lastForwarded ? new Date(r.lastForwarded).toLocaleString() : '—'}</small></td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load stats', err);
+      }
+    }
+
+    async function resetStats() {
+      if (!confirm('Reset all forwarding statistics? This cannot be undone.')) return;
+      await fetch('/api/stats', { method: 'DELETE' });
+      loadStats();
     }
 
     // Logs Logic

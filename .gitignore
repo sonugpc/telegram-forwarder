@@ -4,3 +4,4 @@ session.json
 logs/
 *.log
 config/*
+data/
