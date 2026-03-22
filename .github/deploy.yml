@@ -1,0 +1,23 @@
+name: Update and Restart TelegramBot
+
+on: [push]
+
+jobs:
+  update-restart:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Execute SSH commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: 222
+          script: |
+            cd /var/www/telegram-forwarder 
+            git pull --rebase
+            pm2 restart index

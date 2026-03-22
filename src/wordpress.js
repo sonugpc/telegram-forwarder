@@ -37,7 +37,7 @@ async function postToWordPress(endpoint, siteurl, originalText) {
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          AuthAuthorization: `Bearer ${token}`,
         },
         timeout: 15000,
       },
